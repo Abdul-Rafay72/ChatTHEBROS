@@ -1,1 +1,227 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Chat</title>
 
+<script src="https://unpkg.com/@supabase/supabase-js@2"></script>
+
+<style>
+body{
+    margin:0;
+    font-family:Arial;
+    background:#111;
+    color:white;
+}
+
+#login,#chat{
+    height:100vh;
+    display:flex;
+    flex-direction:column;
+}
+
+#login{
+    justify-content:center;
+    align-items:center;
+    gap:10px;
+}
+
+input,button{
+    padding:10px;
+    border-radius:10px;
+    border:none;
+}
+
+button{
+    background:#00cc88;
+    color:white;
+    cursor:pointer;
+}
+
+#top{
+    padding:10px;
+    background:#222;
+    display:flex;
+    justify-content:space-between;
+}
+
+#msgs{
+    flex:1;
+    overflow:auto;
+    padding:10px;
+    display:flex;
+    flex-direction:column;
+    gap:10px;
+}
+
+.msg{
+    background:#222;
+    padding:10px;
+    border-radius:10px;
+    cursor:pointer;
+}
+
+.name{
+    color:#00ffcc;
+    font-weight:bold;
+}
+
+#bottom{
+    display:flex;
+    gap:10px;
+    padding:10px;
+    background:#222;
+}
+</style>
+</head>
+
+<body>
+
+<div id="login">
+    <h2>Chat</h2>
+    <input id="u" placeholder="username">
+    <button onclick="join()">Join</button>
+</div>
+
+<div id="chat" style="display:none;">
+    <div id="top">
+        <div id="me"></div>
+        <button onclick="logout()">Logout</button>
+    </div>
+
+    <div id="msgs"></div>
+
+    <div id="bottom">
+        <input id="t" placeholder="message">
+        <button onclick="send()">Send</button>
+    </div>
+</div>
+
+<script>
+const SUPABASE_URL = "https://xbvcdtvjeunbamobivpe.supabase.co";
+const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InhidmNkdHZqZXVuYmFtb2JpdnBlIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzI4MzE0NjgsImV4cCI6MjA4ODQwNzQ2OH0.epzWcz1TZzleu22POM2fpGTU6PbUeAqlWlkDBLtQVHM";
+
+const db = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+
+let user = localStorage.getItem("user");
+
+if(user) start();
+
+/* LOGIN */
+function join(){
+    const v = document.getElementById("u").value.trim();
+    if(!v) return alert("Enter username");
+
+    localStorage.setItem("user", v);
+    user = v;
+    start();
+}
+
+function logout(){
+    localStorage.removeItem("user");
+    location.reload();
+}
+
+function start(){
+    document.getElementById("login").style.display="none";
+    document.getElementById("chat").style.display="flex";
+
+    document.getElementById("me").innerText = "Logged in: " + user;
+
+    load();
+    live();
+}
+
+/* LOAD */
+async function load(){
+    const { data, error } = await db
+        .from("messages")
+        .select("*")
+        .order("id",{ascending:true});
+
+    if(error){
+        console.log(error);
+        return;
+    }
+
+    const box = document.getElementById("msgs");
+    box.innerHTML = "";
+
+    data.forEach(renderMsg);
+}
+
+/* RENDER */
+function renderMsg(m){
+
+    const box = document.getElementById("msgs");
+
+    const div = document.createElement("div");
+    div.className = "msg";
+    div.dataset.id = m.id;
+
+    div.innerHTML = `
+        <div class="name">${m.username}</div>
+        <div>${m.text}</div>
+    `;
+
+    // RIGHT CLICK DELETE
+    div.addEventListener("contextmenu", async (e)=>{
+        e.preventDefault();
+
+        if(m.username !== user){
+            alert("Only your messages");
+            return;
+        }
+
+        const ok = confirm("Delete message?");
+        if(!ok) return;
+
+        const { error } = await db
+            .from("messages")
+            .delete()
+            .eq("id", m.id);
+
+        if(!error){
+            div.remove();
+        }
+    });
+
+    box.appendChild(div);
+}
+
+/* SEND */
+async function send(){
+    const text = document.getElementById("t").value.trim();
+    if(!text) return;
+
+    document.getElementById("t").value="";
+
+    await db.from("messages").insert([
+        { username:user, text }
+    ]);
+}
+
+/* LIVE FIXED */
+function live(){
+
+    db.channel("chat")
+    .on("postgres_changes",
+        { event:"INSERT", schema:"public", table:"messages" },
+        payload=>{
+            renderMsg(payload.new);
+        }
+    )
+    .on("postgres_changes",
+        { event:"DELETE", schema:"public", table:"messages" },
+        payload=>{
+            const el = document.querySelector(`[data-id="${payload.old.id}"]`);
+            if(el) el.remove();
+        }
+    )
+    .subscribe();
+}
+</script>
+
+</body>
+</html>
