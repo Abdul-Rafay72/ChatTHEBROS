@@ -1,0 +1,12 @@
+{
+  "name": "thebroschat",
+  "version": "1.0.0",
+  "description": "A lightweight HTML chat interface.",
+  "main": "Index.html",
+  "unpkg": "Index.html",
+  "files": [
+    "Index.html"
+  ],
+  "author": "Abdul-Rafay Amir",
+  "license": "MIT"
+}
