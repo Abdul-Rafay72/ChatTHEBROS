@@ -2,8 +2,8 @@
   "name": "thebroschat",
   "version": "1.0.0",
   "description": "A lightweight HTML chat interface.",
-  "main": "Index.html",
-  "unpkg": "Index.html",
+  "main": "index.html",
+  "unpkg": "index.html",
   "files": [
     "Index.html"
   ],
